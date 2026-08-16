@@ -1,4 +1,13 @@
 <?php
+// Configura a sessão para durar 30 dias (evita deslogar sozinho no Render/Celular)
+ini_set('session.gc_maxlifetime', 2592000);
+session_set_cookie_params([
+    'lifetime' => 2592000,
+    'path' => '/',
+    'httponly' => true,
+    'samesite' => 'Lax'
+]);
+
 session_start();
 error_reporting(0);
 
