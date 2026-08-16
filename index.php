@@ -1,5 +1,5 @@
 <?php
-// Configura a sessão para durar 30 dias e não deslogar no Render
+// Configura a sessão para durar 30 dias
 ini_set('session.gc_maxlifetime', 2592000);
 ini_set('session.cookie_lifetime', 2592000);
 session_set_cookie_params([
@@ -13,19 +13,17 @@ session_start();
 
 $db_file = 'db_keys.json';
 
-// Lê o banco de dados
 function get_keys_db($file) {
     if (!file_exists($file)) return [];
     $data = json_decode(file_get_contents($file), true);
     return is_array($data) ? $data : [];
 }
 
-// Salva sem apagar nenhuma chave
 function save_keys_db($file, $data) {
     file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT));
 }
 
-// Verificação de Acesso / API do GameGuardian
+// 1. API DO GAMEGUARDIAN / CHECAGEM
 if (isset($_GET['action']) && $_GET['action'] === 'verify_key') {
     header('Content-Type: application/json');
     $user_key = $_GET['key'] ?? '';
@@ -40,9 +38,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'verify_key') {
 
     $key_data = $keys[$user_key];
 
-    // Checa expiração
     if (time() > $key_data['expiration_timestamp']) {
-        // NÃO USA UNSET/DELETE: Apenas atualiza o status visual
         $keys[$user_key]['status'] = 'expired';
         save_keys_db($db_file, $keys);
         
@@ -50,7 +46,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'verify_key') {
         exit;
     }
 
-    // Trava de HWID / Dispositivo
     if (empty($key_data['hwid'])) {
         $keys[$user_key]['hwid'] = $hwid;
         save_keys_db($db_file, $keys);
@@ -62,4 +57,25 @@ if (isset($_GET['action']) && $_GET['action'] === 'verify_key') {
     echo json_encode(["status" => "success"]);
     exit;
 }
+
+// 2. PAINEL VISUAL (Exibido quando acessado pelo navegador)
 ?>
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Keys</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #121212; color: #fff; text-align: center; padding: 50px; }
+        .card { background: #1e1e1e; padding: 20px; border-radius: 8px; display: inline-block; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Gerenciador de Keys</h1>
+        <p>Sistema online e operacional.</p>
+        <!-- Adicione aqui os seus formulários de login/geração de keys -->
+    </div>
+</body>
+</html>
