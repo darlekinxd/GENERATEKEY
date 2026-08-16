@@ -92,7 +92,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         if (!$is_admin && $c >= $lim) { echo "<script>alert('Limite atingido!'); window.location.href='?';</script>"; exit; }
         
         $sec = ($_POST['duration_type'] === 'hours') ? intval($_POST['duration_value']) * 3600 : intval($_POST['duration_value']) * 86400;
-        $new_key = !empty($_POST['custom_name']) ? trim($_POST['custom_name']) : "KEY-" . strtoupper(bin2hex(random_bytes(4)));
+        
+        // Padrão: NomeDoUsuario-123456
+        $rand_digits = rand(100000, 999999);
+        $default_key = $current_user . "-" . $rand_digits;
+        $new_key = !empty($_POST['custom_name']) ? trim($_POST['custom_name']) : $default_key;
         
         $keys[$new_key] = ['created_at' => date('Y-m-d H:i:s'), 'created_by' => $current_user, 'duration_seconds' => $sec, 'first_used_at' => null, 'expiration_timestamp' => null, 'status' => 'pending', 'enabled' => true, 'max_devices' => intval($_POST['max_devices'] ?? 1), 'hwids' => []];
         save_data($db_keys, $keys);
@@ -114,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Painel</title>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Darlekin generate key</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; } body { font-family: sans-serif; background: #0f0f12; color: #e1e1e6; padding: 20px; }
         .container { max-width: 1100px; margin: 0 auto; } .card { background: #18181b; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #27272a; overflow-x: auto; }
@@ -129,7 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 <body>
     <div class="container">
         <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
-            <h2>Painel DarkEkin</h2>
+            <h2>Darlekin generate key</h2>
             <div><?= htmlspecialchars($current_user) ?> (<?= strtoupper($_SESSION['role']) ?>) 
             <form method="POST" style="margin:0;"><input type="hidden" name="auth_action" value="logout"><button class="btn btn-danger">Sair</button></form></div>
         </div>
@@ -153,11 +157,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             <div class="card">
                 <h3>Lista de Keys</h3>
                 <table>
-                    <tr><th>Key</th><th>Status</th><th>Criador</th><th>Dispositivos</th><th>Ações</th></tr>
-                    <?php foreach (array_reverse($keys, true) as $key => $data): if (!$is_admin && ($data['created_by'] ?? '') !== $current_user) continue; ?>
+                    <tr><th>Key</th><th>Status / Tempo Restante</th><th>Criador</th><th>Dispositivos</th><th>Ações</th></tr>
+                    <?php foreach (array_reverse($keys, true) as $key => $data): if (!$is_admin && ($data['created_by'] ?? '') !== $current_user) continue; 
+                        $status_text = ''; $time_info = '';
+                        if (!($data['enabled'] ?? true)) {
+                            $status_text = 'DESATIVADA';
+                        } elseif (empty($data['first_used_at']) || $data['status'] === 'pending') {
+                            $status_text = 'NÃO INICIADA';
+                            $dur_h = round($data['duration_seconds'] / 3600, 1);
+                            $time_info = "Duração: {$dur_h}h";
+                        } elseif (time() > $data['expiration_timestamp']) {
+                            $status_text = 'EXPIRADA';
+                            $time_info = 'Expirou';
+                        } else {
+                            $status_text = 'EM USO';
+                            $diff = $data['expiration_timestamp'] - time();
+                            $d = floor($diff / 86400);
+                            $h = floor(($diff % 86400) / 3600);
+                            $m = floor(($diff % 3600) / 60);
+                            $time_info = "Resta: " . ($d > 0 ? "{$d}d " : "") . "{$h}h {$m}m";
+                        }
+                    ?>
                     <tr>
                         <td><code><?= htmlspecialchars($key) ?></code></td>
-                        <td><span class="badge"><?= !($data['enabled']??true) ? 'DESATIVADA' : (empty($data['first_used_at']) ? 'NÃO INICIADA' : (time() > $data['expiration_timestamp'] ? 'EXPIRADA' : 'EM USO')) ?></span></td>
+                        <td>
+                            <span class="badge"><?= $status_text ?></span>
+                            <div style="font-size:11px; margin-top:3px; color:#a1a1aa;"><?= $time_info ?></div>
+                        </td>
                         <td><?= htmlspecialchars($data['created_by'] ?? '-') ?></td>
                         <td><?= count($data['hwids']??[]) ?>/<?= $data['max_devices']??1 ?></td>
                         <td>
